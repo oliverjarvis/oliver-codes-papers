@@ -158,10 +158,12 @@ class Transformer(tf.keras.Model):
         self.d_model = embedding_dimension
         self.maxlength = input_length
         self.vocab_size = vocab_size
+
+        #Layer initialization
         self.Embeddings = EmbeddingLayer(input_dim=self.vocab_size, output_dim=512, input_length=self.maxlength, scale=self.d_model)
         self.PositionalEncoder = PositionalEncoding(input_length=self.maxlength, scale=self.d_model)
         self.EncoderDecoder = EncoderDecoder(n_stack = 6, h = 8, mask = False)
-
+        self.outputdense = tf.keras.layers.Dense(self.vocab_size)
     def call(self, inputs):
         encoder_input = inputs[0]
         decoder_input = inputs[1]
@@ -176,9 +178,9 @@ class Transformer(tf.keras.Model):
         decoder_embeddings = self.Embeddings(decoder_input)
         decoder_embeddings = self.PositionalEncoder(decoder_embeddings)
         
-        encoderdecoder = self.EncoderDecoder([encoder_embeddings, decoder_embeddings])
+        #encoderdecoder = self.EncoderDecoder([encoder_embeddings, decoder_embeddings])
 
-        outputs = tf.keras.layers.Dense(units=self.vocab_size)(encoderdecoder)
+        outputs = self.outputdense(encoderdecoder)
         return outputs
 
 transformer = Transformer(input_length=256)

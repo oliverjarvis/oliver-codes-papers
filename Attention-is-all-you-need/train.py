@@ -163,6 +163,7 @@ for epoch in range(EPOCHS):
   
   # inp -> portuguese, tar -> english
   for (batch, (inp, tar)) in enumerate(train_dataset):
+
     train_step(inp, tar)
     
     if batch % 10 == 0:

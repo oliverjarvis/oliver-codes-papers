@@ -8,7 +8,7 @@ def scaled_dot_product_attention(Q, K, V, mask):
     attention = attention / tf.math.sqrt(dk)
     if mask is not None:
         
-        attention += mask * -np.inf
+        attention += mask * -1e9
 
     attention = tf.nn.softmax(attention, axis=-1)
     return tf.linalg.matmul(attention, V)
@@ -22,6 +22,7 @@ class MultiHeadAttention(layers.Layer):
         self.QDense = tf.keras.layers.Dense(units=self.d_model)
         self.KDense = tf.keras.layers.Dense(units=self.d_model)
         self.VDense = tf.keras.layers.Dense(units=self.d_model)
+        self.dense = tf.keras.layers.Dense(units=self.d_model)
     
     def split_heads(self, tensor, batch_size, depth):
         # Reshape into the desired dimension
@@ -45,5 +46,4 @@ class MultiHeadAttention(layers.Layer):
 
         attention = tf.transpose(attention, perm=[0,2,1,3])
         attention = tf.reshape(attention, (self.batch_size, -1, self.d_model))
-        
-        return attention
+        return self.dense(attention)

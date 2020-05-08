@@ -3,7 +3,7 @@ import tensorflow as tf
 #from modules.multiheadattention import MultiHeadAttention
 from modules.multiheadattention import MultiHeadAttention
 
-def point_wise_feed_forward_network(d_model, dff):
+def feed_forward(d_model, dff):
   return tf.keras.Sequential([
       tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
       tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
@@ -101,7 +101,7 @@ class Encoder(tf.keras.layers.Layer):
         self.multiheadattention = MultiHeadAttention(head_count = head_count, d_model = d_model, batch_size = batch_size)
         self.layerNorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layerNorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.ffn = point_wise_feed_forward_network(d_model, 2048)
+        self.ffn = feed_forward(d_model, 2048)
         self.dropout1 = tf.keras.layers.Dropout(rate=0.1)
         self.dropout2 = tf.keras.layers.Dropout(rate=0.1)
         
@@ -133,7 +133,7 @@ class Decoder(tf.keras.layers.Layer):
         self.layerNorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layerNorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layerNorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.ffn = point_wise_feed_forward_network(d_model, 2048)
+        self.ffn = feed_forward(d_model, 2048)
         self.dropout1 = tf.keras.layers.Dropout(rate=0.1)
         self.dropout2 = tf.keras.layers.Dropout(rate=0.1)
         self.dropout3 = tf.keras.layers.Dropout(rate=0.1)

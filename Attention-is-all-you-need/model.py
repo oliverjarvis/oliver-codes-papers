@@ -9,13 +9,18 @@ import numpy as np
 from modules.embeddings import EmbeddingLayer
 from modules.encodedecode import EncoderDecoder
 
+
+
 def create_masks(source, target, padding_value):
     source_mask = tf.cast(tf.math.equal(source, 0), tf.float32)
-    target_mask = tf.cast(tf.math.equal(target, 0), tf.float32)
+    source_mask = source_mask[:, tf.newaxis, tf.newaxis, :]
+    target_mask = tf.cast(tf.math.equal(source, 0), tf.float32)
+    target_mask = target_mask[:, tf.newaxis, tf.newaxis, :]
     length = tf.shape(target)[-1]
-    print(length.shape)
-    target_subsequent_mask = tf.linalg.band_part(tf.ones((length, length)), -1, 0)
-    target_subsequent_mask = tf.maximum(target_subsequent_mask, target_mask)
+    padding_mask = tf.cast(tf.math.equal(target, 0), tf.float32)
+    padding_mask = padding_mask[:, tf.newaxis, tf.newaxis, :]
+    target_subsequent_mask = 1 - tf.linalg.band_part(tf.ones((length, length)), -1, 0)
+    target_subsequent_mask = tf.maximum(padding_mask, target_subsequent_mask)
     return (source_mask, target_mask, target_subsequent_mask)    
 
 class Transformer(tf.keras.models.Model):
@@ -46,10 +51,10 @@ class Transformer(tf.keras.models.Model):
         self.encoderDecoder = EncoderDecoder(stack_n = layer_count, head_count = head_count, d_model=d_model, batch_size = batch_size)
         self.fullyConnected = tf.keras.layers.Dense(self.decoder_vocab_size)
 
-    def call(self, data_inputs, training):
+    def call(self, input, target, training):
         ## expected input_shape (None, None)
-        encoder_input = data_inputs[0]
-        decoder_input = data_inputs[1]
+        encoder_input = input
+        decoder_input = target
         source_mask, target_mask, target_subsequent_mask = create_masks(encoder_input, decoder_input, self.padding_value)
 
         encoder_embeddings = self.encoderEmbedding(encoder_input)

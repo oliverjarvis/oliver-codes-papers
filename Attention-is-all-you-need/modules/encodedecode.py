@@ -1,6 +1,13 @@
 
 import tensorflow as tf
+#from modules.multiheadattention import MultiHeadAttention
 from modules.multiheadattention import MultiHeadAttention
+
+def point_wise_feed_forward_network(d_model, dff):
+  return tf.keras.Sequential([
+      tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
+      tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
+  ])
 
 class EncoderDecoder(tf.keras.layers.Layer):
     def __init__(self, 
@@ -92,7 +99,8 @@ class Encoder(tf.keras.layers.Layer):
 
         #layers
         self.multiheadattention = MultiHeadAttention(head_count = head_count, d_model = d_model, batch_size = batch_size)
-        self.layerNorm = tf.keras.layers.LayerNormalization()
+        self.layerNorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layerNorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.dense1 = tf.keras.layers.Dense(units=2048, activation=tf.nn.relu)
         self.dense2 = tf.keras.layers.Dense(units=512)
         self.dropout1 = tf.keras.layers.Dropout(rate=0.1)
@@ -102,14 +110,13 @@ class Encoder(tf.keras.layers.Layer):
 
         sublayer1 = self.multiheadattention(x, x, x, source_mask)
         sublayer1 = self.dropout1(sublayer1)
-        sublayer1 = tf.add(x, sublayer1)
-        sublayer1 = self.layerNorm(sublayer1)
-        sublayer2 = self.dense1(sublayer1)
+        out1 = self.layerNorm1(x + sublayer1)
+        sublayer2 = self.dense1(out1)
         sublayer2 = self.dense2(sublayer2)
         sublayer2 = self.dropout2(sublayer2)
-        output = tf.add(sublayer1, sublayer2)
-
-        return output
+        out2 = self.layerNorm2(out1 + sublayer2)
+        
+        return out2
 
 class Decoder(tf.keras.layers.Layer):
     def __init__(
@@ -125,8 +132,9 @@ class Decoder(tf.keras.layers.Layer):
         #layers
         self.multiheadattention = MultiHeadAttention(head_count = head_count, d_model = d_model, batch_size = batch_size)
         self.masked_multiheadattention = MultiHeadAttention(head_count = head_count, d_model = d_model, batch_size = batch_size)
-        self.layerNorm1 = tf.keras.layers.LayerNormalization()
-        self.layerNorm2 = tf.keras.layers.LayerNormalization()
+        self.layerNorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layerNorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layerNorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.dense1 = tf.keras.layers.Dense(units=2048, activation=tf.nn.relu)
         self.dense2 = tf.keras.layers.Dense(units=512)
         self.dropout1 = tf.keras.layers.Dropout(rate=0.1)
@@ -135,17 +143,16 @@ class Decoder(tf.keras.layers.Layer):
 
     def call(self, decoder_input, encoder_input, target_mask, target_subsequent_mask):
 
-        sublayer1 = self.masked_multiheadattention(decoder_input, decoder_input, target_subsequent_mask)
+        sublayer1 = self.masked_multiheadattention(decoder_input, decoder_input, decoder_input, target_subsequent_mask)
         sublayer1 = self.dropout1(sublayer1)
-        sublayer1 = tf.add(decoder_input, sublayer1)
-        sublayer1 = self.layerNorm1(sublayer1)
-        sublayer2 = self.multiheadattention(encoder_input, encoder_input, target_mask)
+        out1 = self.layerNorm1(sublayer1 + decoder_input)
+        sublayer2 = self.multiheadattention(encoder_input, encoder_input, out1, target_mask)
         sublayer2 = self.dropout2(sublayer2)
         sublayer2 = tf.add(sublayer1, sublayer2)
-        sublayer2 = self.layerNorm2(sublayer2)
-        sublayer3 = self.dense1(sublayer2)
+        out2 = self.layerNorm2(sublayer2 + out1)
+        sublayer3 = self.dense1(out2)
         sublayer3 = self.dense2(sublayer3)
         sublayer3 = self.dropout3(sublayer3)
-        output = tf.add(sublayer2, sublayer3)
+        out3 = self.layerNorm3(sublayer3 + out2)
 
-        return output
+        return out3

@@ -15,27 +15,32 @@ class EncoderDecoder(tf.keras.layers.Layer):
             head_count,
             d_model,
             batch_size,
+            encoder_only = False,
             **kwargs
             ):
 
         super(EncoderDecoder, self).__init__(**kwargs)
-
+        self.encoder_only = encoder_only
         #layers
         self.encoderStack = EncoderStack(stack_n = stack_n, head_count = head_count, d_model=d_model, batch_size = batch_size)
-        self.decoderStack = DecoderStack(stack_n = stack_n, head_count = head_count, d_model = d_model, batch_size = batch_size)
+        if not self.encoder_only:
+            self.decoderStack = DecoderStack(stack_n = stack_n, head_count = head_count, d_model = d_model, batch_size = batch_size)
 
     def call(self, 
             encoder_input,
-            decoder_input,
-            source_mask,
-            target_mask,
-            target_subsequent_mask, 
+            decoder_input = None,
+            source_mask = None,
+            target_mask = None,
+            target_subsequent_mask = None 
             ):
 
         encoder = self.encoderStack(encoder_input, source_mask)
-        decoder = self.decoderStack(decoder_input, encoder, target_mask, target_subsequent_mask)
+        output = encoder
+        if not self.encoder_only:
+            decoder = self.decoderStack(decoder_input, encoder, target_mask, target_subsequent_mask)
+            output = decoder
         
-        return decoder
+        return output
 
 class EncoderStack(tf.keras.layers.Layer):
     def __init__(

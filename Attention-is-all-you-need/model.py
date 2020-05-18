@@ -32,7 +32,8 @@ class Transformer(tf.keras.models.Model):
             layer_count,
             head_count,
             batch_size,
-            padding_value
+            padding_value,
+            encoder_only = False
         ):
 
         super(Transformer, self).__init__(name="Transformer")
@@ -44,30 +45,42 @@ class Transformer(tf.keras.models.Model):
         self.decoder_vocab_size = decoder_vocab_size
         self.head_count = head_count
         self.padding_value = padding_value
+        self.encoder_only = encoder_only
 
         #Layer definitions
         self.encoderEmbedding = EmbeddingLayer(input_dim=self.encoder_vocab_size, output_dim=self.d_model)
-        self.decoderEmbedding = EmbeddingLayer(input_dim=self.decoder_vocab_size, output_dim=self.d_model)
-        self.encoderDecoder = EncoderDecoder(stack_n = layer_count, head_count = head_count, d_model=d_model, batch_size = batch_size)
-        self.fullyConnected = tf.keras.layers.Dense(self.decoder_vocab_size)
+        self.encoderDecoder = EncoderDecoder(stack_n = layer_count, head_count = head_count, d_model=d_model, batch_size = batch_size, encoder_only=self.encoder_only)
+        if self.encoder_only:
+            self.binaryDense = tf.keras.layers.Dense(1)
+        if not self.encoder_only:
+            self.decoderEmbedding = EmbeddingLayer(input_dim=self.decoder_vocab_size, output_dim=self.d_model)
+            self.fullyConnected = tf.keras.layers.Dense(self.decoder_vocab_size)
 
-    def call(self, input, target, training):
+    def call(self, input, target=None, training=True):
         ## expected input_shape (None, None)
         encoder_input = input
         decoder_input = target
-        source_mask, target_mask, target_subsequent_mask = create_masks(encoder_input, decoder_input, self.padding_value)
 
         encoder_embeddings = self.encoderEmbedding(encoder_input)
-        decoder_embeddings = self.decoderEmbedding(decoder_input)
-        
-        encoderdecoder = self.encoderDecoder(
-            encoder_embeddings,
-            decoder_embeddings,
-            source_mask, 
-            target_mask, 
-            target_subsequent_mask
-            )
 
-        last_layer = self.fullyConnected(encoderdecoder)
+        if not self.encoder_only:
+            decoder_embeddings = self.decoderEmbedding(decoder_input)
+            source_mask, target_mask, target_subsequent_mask = create_masks(encoder_input, decoder_input, self.padding_value)
+
+            encoderdecoder = self.encoderDecoder(
+                encoder_embeddings,
+                decoder_embeddings,
+                source_mask, 
+                target_mask, 
+                target_subsequent_mask
+                )
+
+            last_layer = self.fullyConnected(encoderdecoder)
+        else:
+            encoderdecoder = self.encoderDecoder(
+                encoder_embeddings
+                )
+            last_layer = encoderdecoder[:,0,:]
+            last_layer = self.binaryDense(last_layer)
 
         return last_layer
